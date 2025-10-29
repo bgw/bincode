@@ -540,12 +540,12 @@ impl<Context> Decode<Context> for () {
 }
 impl_borrow_decode!(());
 
-impl<Context, T> Decode<Context> for core::marker::PhantomData<T> {
+impl<Context, T: ?Sized> Decode<Context> for core::marker::PhantomData<T> {
     fn decode<D: Decoder<Context = Context>>(_: &mut D) -> Result<Self, DecodeError> {
         Ok(core::marker::PhantomData)
     }
 }
-impl_borrow_decode!(core::marker::PhantomData<T>, T);
+impl_borrow_decode!(core::marker::PhantomData<T>, T: ?Sized);
 
 impl<Context, T> Decode<Context> for Option<T>
 where

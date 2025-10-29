@@ -120,8 +120,8 @@ pub trait BorrowDecode<'de, Context>: Sized {
 /// Helper macro to implement `BorrowDecode` for any type that implements `Decode`.
 #[macro_export]
 macro_rules! impl_borrow_decode {
-    ($ty:ty $(, $param:tt)*) => {
-        impl<'de $(, $param)*, __Context> $crate::BorrowDecode<'de, __Context> for $ty {
+    ($ty:ty $(, $($params:tt)*)?) => {
+        impl<'de $(, $($params)*)?, __Context> $crate::BorrowDecode<'de, __Context> for $ty {
             fn borrow_decode<D: $crate::de::BorrowDecoder<'de, Context = __Context>>(
                 decoder: &mut D,
             ) -> core::result::Result<Self, $crate::error::DecodeError> {
@@ -134,8 +134,8 @@ macro_rules! impl_borrow_decode {
 /// Helper macro to implement `BorrowDecode` for any type that implements `Decode`.
 #[macro_export]
 macro_rules! impl_borrow_decode_with_context {
-    ($ty:ty, $context:ty $(, $param:tt)*) => {
-        impl<'de $(, $param)*> $crate::BorrowDecode<'de, $context> for $ty {
+    ($ty:ty, $context:ty $(, $($params:tt)*)?) => {
+        impl<'de $(, $($params)*)?> $crate::BorrowDecode<'de, $context> for $ty {
             fn borrow_decode<D: $crate::de::BorrowDecoder<'de, Context = $context>>(
                 decoder: &mut D,
             ) -> core::result::Result<Self, $crate::error::DecodeError> {

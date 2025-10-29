@@ -21,7 +21,7 @@ impl Encode for () {
     }
 }
 
-impl<T> Encode for PhantomData<T> {
+impl<T: ?Sized> Encode for PhantomData<T> {
     fn encode<E: Encoder>(&self, _: &mut E) -> Result<(), EncodeError> {
         Ok(())
     }
