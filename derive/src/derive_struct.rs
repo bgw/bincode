@@ -43,7 +43,9 @@ impl DeriveStruct {
                             .attributes()
                             .get_attribute::<FieldAttributes>()?
                             .unwrap_or_default();
-                        if attributes.with_serde {
+                        if attributes.skip {
+                            continue;
+                        } else if attributes.with_serde {
                             fn_body.push_parsed(format!(
                                 "{0}::Encode::encode(&{0}::serde::Compat(&self.{1}), encoder)?;",
                                 crate_name, field
@@ -108,7 +110,13 @@ impl DeriveStruct {
                         if let Some(fields) = self.fields.as_ref() {
                             for field in fields.names() {
                                 let attributes = field.attributes().get_attribute::<FieldAttributes>()?.unwrap_or_default();
-                                if attributes.with_serde {
+                                if attributes.skip {
+                                    struct_body
+                                        .push_parsed(format!(
+                                            "{}: core::default::Default::default(),",
+                                            field,
+                                        ))?;
+                                } else if attributes.with_serde {
                                     struct_body
                                         .push_parsed(format!(
                                             "{1}: (<{0}::serde::Compat<_> as {0}::Decode::<{2}>>::decode(decoder)?).0,",
@@ -173,7 +181,6 @@ impl DeriveStruct {
             .with_arg("decoder", "&mut __D")
             .with_return_type(format!("core::result::Result<Self, {}::error::DecodeError>", crate_name))
             .body(|fn_body| {
-                // Ok(Self {
                 fn_body.push_parsed("core::result::Result::Ok")?;
                 fn_body.group(Delimiter::Parenthesis, |ok_group| {
                     ok_group.ident_str("Self");
@@ -181,7 +188,13 @@ impl DeriveStruct {
                         if let Some(fields) = self.fields.as_ref() {
                             for field in fields.names() {
                                 let attributes = field.attributes().get_attribute::<FieldAttributes>()?.unwrap_or_default();
-                                if attributes.with_serde {
+                                if attributes.skip {
+                                    struct_body
+                                        .push_parsed(format!(
+                                            "{}: core::default::Default::default(),",
+                                            field,
+                                        ))?;
+                                } else if attributes.with_serde {
                                     struct_body
                                         .push_parsed(format!(
                                             "{1}: (<{0}::serde::BorrowCompat<_> as {0}::BorrowDecode::<'_, {2}>>::borrow_decode(decoder)?).0,",

@@ -7,6 +7,8 @@ pub(crate) struct Test<T> {
     a: T,
     b: u32,
     c: u8,
+    #[bincode(skip)]
+    d: Option<u64>,
 }
 
 #[test]
@@ -15,6 +17,7 @@ fn test_encode() {
         a: 5i32,
         b: 10u32,
         c: 20u8,
+        d: Some(1234u64),
     };
     let mut slice = [0u8; 1024];
     let bytes_written =
@@ -77,6 +80,8 @@ pub struct Test3<'a> {
     b: u32,
     c: u32,
     d: Option<&'a [u8]>,
+    #[bincode(skip)]
+    e: Option<u64>,
 }
 
 #[test]
@@ -86,6 +91,7 @@ fn test_encode_decode_str() {
         b: 10u32,
         c: 1024u32,
         d: Some(b"Foo bar"),
+        e: Some(1234u64),
     };
     let mut slice = [0u8; 100];
 
@@ -93,7 +99,7 @@ fn test_encode_decode_str() {
     assert_eq!(len, 21);
     let (end, len): (Test3, usize) =
         bincode::borrow_decode_from_slice(&slice[..len], bincode::config::standard()).unwrap();
-    assert_eq!(end, start);
+    assert_eq!(end, Test3 { e: None, ..start });
     assert_eq!(len, 21);
 }
 
@@ -124,7 +130,7 @@ fn test_decode_tuple() {
 pub enum TestEnum {
     Foo,
     Bar { name: u32 },
-    Baz(u32, u32, u32),
+    Baz(u32, u32, u32, #[bincode(skip)] Option<u64>),
 }
 #[test]
 fn test_encode_enum_struct_variant() {
@@ -168,7 +174,7 @@ fn test_encode_enum_unit_variant() {
 
 #[test]
 fn test_encode_enum_tuple_variant() {
-    let start = TestEnum::Baz(5, 10, 1024);
+    let start = TestEnum::Baz(5, 10, 1024, Some(1234));
     let mut slice = [0u8; 1024];
     let bytes_written =
         bincode::encode_into_slice(start, &mut slice, bincode::config::standard()).unwrap();
@@ -178,7 +184,7 @@ fn test_encode_enum_tuple_variant() {
 
 #[test]
 fn test_decode_enum_tuple_variant() {
-    let start = TestEnum::Baz(5, 10, 1024);
+    let start = TestEnum::Baz(5, 10, 1024, None);
     let slice = [2, 5, 10, 251, 0, 4];
     let (result, len): (TestEnum, usize) =
         bincode::decode_from_slice(&slice, bincode::config::standard()).unwrap();

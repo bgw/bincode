@@ -103,6 +103,7 @@ impl FromAttribute for ContainerAttributes {
 #[derive(Default)]
 pub struct FieldAttributes {
     pub with_serde: bool,
+    pub skip: bool,
 }
 
 impl FromAttribute for FieldAttributes {
@@ -115,7 +116,16 @@ impl FromAttribute for FieldAttributes {
         for attribute in attributes {
             match attribute {
                 ParsedAttribute::Tag(i) if i.to_string() == "with_serde" => {
+                    if result.skip {
+                        return Err(mutually_exclusive_err(&i, "skip"));
+                    }
                     result.with_serde = true;
+                }
+                ParsedAttribute::Tag(i) if i.to_string() == "skip" => {
+                    if result.with_serde {
+                        return Err(mutually_exclusive_err(&i, "with_serde"));
+                    }
+                    result.skip = true;
                 }
                 ParsedAttribute::Tag(i) => {
                     return Err(Error::custom_at("Unknown field attribute", i.span()))
@@ -128,4 +138,11 @@ impl FromAttribute for FieldAttributes {
         }
         Ok(Some(result))
     }
+}
+
+fn mutually_exclusive_err(ident: &Ident, other: &str) -> Error {
+    Error::custom_at(
+        format!("Attribute {ident} is mutually exclusive with {other}"),
+        ident.span(),
+    )
 }
