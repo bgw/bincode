@@ -9,6 +9,27 @@ pub(crate) struct Test<T> {
     c: u8,
     #[bincode(skip)]
     d: Option<u64>,
+    #[bincode(with = "encode_as_double")]
+    e: u8,
+}
+
+mod encode_as_double {
+    pub fn encode<E: bincode::enc::Encoder>(
+        value: &u8,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        bincode::Encode::encode(&(value * 2), encoder)
+    }
+    pub fn decode<Context, D: bincode::de::Decoder<Context = Context>>(
+        decoder: &mut D,
+    ) -> Result<u8, bincode::error::DecodeError> {
+        Ok(<u8 as bincode::Decode<Context>>::decode(decoder)? / 2u8)
+    }
+    pub fn borrow_decode<'de, Context, D: bincode::de::BorrowDecoder<'de, Context = Context>>(
+        decoder: &mut D,
+    ) -> Result<u8, bincode::error::DecodeError> {
+        decode(decoder)
+    }
 }
 
 #[test]
@@ -18,12 +39,13 @@ fn test_encode() {
         b: 10u32,
         c: 20u8,
         d: Some(1234u64),
+        e: 2u8,
     };
     let mut slice = [0u8; 1024];
     let bytes_written =
         bincode::encode_into_slice(start, &mut slice, bincode::config::standard()).unwrap();
-    assert_eq!(bytes_written, 3);
-    assert_eq!(&slice[..bytes_written], &[10, 10, 20]);
+    assert_eq!(bytes_written, 4);
+    assert_eq!(&slice[..bytes_written], &[10, 10, 20, 4]);
 }
 #[derive(PartialEq, Debug, Eq)]
 pub struct Test2<T> {
@@ -82,6 +104,8 @@ pub struct Test3<'a> {
     d: Option<&'a [u8]>,
     #[bincode(skip)]
     e: Option<u64>,
+    #[bincode(with = "encode_as_double")]
+    f: u8,
 }
 
 #[test]
@@ -92,45 +116,54 @@ fn test_encode_decode_str() {
         c: 1024u32,
         d: Some(b"Foo bar"),
         e: Some(1234u64),
+        f: 2,
     };
     let mut slice = [0u8; 100];
 
     let len = bincode::encode_into_slice(&start, &mut slice, bincode::config::standard()).unwrap();
-    assert_eq!(len, 21);
+    assert_eq!(len, 22);
     let (end, len): (Test3, usize) =
         bincode::borrow_decode_from_slice(&slice[..len], bincode::config::standard()).unwrap();
     assert_eq!(end, Test3 { e: None, ..start });
-    assert_eq!(len, 21);
+    assert_eq!(len, 22);
 }
 
 #[derive(bincode::Encode, bincode::Decode, PartialEq, Debug, Eq)]
-pub struct TestTupleStruct(u32, u32, u32);
+pub struct TestTupleStruct(u32, u32, u32, #[bincode(with = "encode_as_double")] u8);
 
 #[test]
 fn test_encode_tuple() {
-    let start = TestTupleStruct(5, 10, 1024);
+    let start = TestTupleStruct(5, 10, 1024, 3);
     let mut slice = [0u8; 1024];
     let bytes_written =
         bincode::encode_into_slice(start, &mut slice, bincode::config::standard()).unwrap();
-    assert_eq!(bytes_written, 5);
-    assert_eq!(&slice[..bytes_written], &[5, 10, 251, 0, 4]);
+    assert_eq!(bytes_written, 6);
+    assert_eq!(&slice[..bytes_written], &[5, 10, 251, 0, 4, 6]);
 }
 
 #[test]
 fn test_decode_tuple() {
-    let start = TestTupleStruct(5, 10, 1024);
-    let slice = [5, 10, 251, 0, 4];
+    let start = TestTupleStruct(5, 10, 1024, 3);
+    let slice = [5, 10, 251, 0, 4, 6];
     let (result, len): (TestTupleStruct, usize) =
         bincode::decode_from_slice(&slice, bincode::config::standard()).unwrap();
     assert_eq!(result, start);
-    assert_eq!(len, 5);
+    assert_eq!(len, 6);
 }
 
 #[derive(bincode::Encode, bincode::Decode, PartialEq, Debug, Eq)]
 pub enum TestEnum {
     Foo,
-    Bar { name: u32 },
-    Baz(u32, u32, u32, #[bincode(skip)] Option<u64>),
+    Bar {
+        name: u32,
+    },
+    Baz(
+        u32,
+        u32,
+        u32,
+        #[bincode(skip)] Option<u64>,
+        #[bincode(with = "encode_as_double")] u8,
+    ),
 }
 #[test]
 fn test_encode_enum_struct_variant() {
@@ -174,22 +207,22 @@ fn test_encode_enum_unit_variant() {
 
 #[test]
 fn test_encode_enum_tuple_variant() {
-    let start = TestEnum::Baz(5, 10, 1024, Some(1234));
+    let start = TestEnum::Baz(5, 10, 1024, Some(1234), 3);
     let mut slice = [0u8; 1024];
     let bytes_written =
         bincode::encode_into_slice(start, &mut slice, bincode::config::standard()).unwrap();
-    assert_eq!(bytes_written, 6);
-    assert_eq!(&slice[..bytes_written], &[2, 5, 10, 251, 0, 4]);
+    assert_eq!(bytes_written, 7);
+    assert_eq!(&slice[..bytes_written], &[2, 5, 10, 251, 0, 4, 6]);
 }
 
 #[test]
 fn test_decode_enum_tuple_variant() {
-    let start = TestEnum::Baz(5, 10, 1024, None);
-    let slice = [2, 5, 10, 251, 0, 4];
+    let start = TestEnum::Baz(5, 10, 1024, None, 3);
+    let slice = [2, 5, 10, 251, 0, 4, 6];
     let (result, len): (TestEnum, usize) =
         bincode::decode_from_slice(&slice, bincode::config::standard()).unwrap();
     assert_eq!(result, start);
-    assert_eq!(len, 6);
+    assert_eq!(len, 7);
 }
 
 #[derive(bincode::Encode, bincode::BorrowDecode, PartialEq, Debug, Eq)]

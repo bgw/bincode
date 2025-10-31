@@ -45,6 +45,11 @@ impl DeriveStruct {
                             .unwrap_or_default();
                         if attributes.skip {
                             continue;
+                        } else if let Some(with) = attributes.with {
+                            fn_body.push_parsed(format!(
+                                "{}::encode(&self.{}, encoder)?;",
+                                with, field
+                            ))?;
                         } else if attributes.with_serde {
                             fn_body.push_parsed(format!(
                                 "{0}::Encode::encode(&{0}::serde::Compat(&self.{1}), encoder)?;",
@@ -125,6 +130,13 @@ impl DeriveStruct {
                                                 field,
                                             ))?;
                                     }
+                                } else if let Some(with) = attributes.with {
+                                    struct_body
+                                        .push_parsed(format!(
+                                            "{}: {}::decode(decoder)?,",
+                                            field,
+                                            with,
+                                        ))?;
                                 } else if attributes.with_serde {
                                     struct_body
                                         .push_parsed(format!(
@@ -212,6 +224,13 @@ impl DeriveStruct {
                                                 field,
                                             ))?;
                                     }
+                                } else if let Some(with) = attributes.with {
+                                    struct_body
+                                        .push_parsed(format!(
+                                            "{}: {}::borrow_decode(decoder)?,",
+                                            field,
+                                            with,
+                                        ))?;
                                 } else if attributes.with_serde {
                                     struct_body
                                         .push_parsed(format!(

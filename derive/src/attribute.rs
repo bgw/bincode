@@ -105,6 +105,7 @@ pub struct FieldAttributes {
     pub with_serde: bool,
     pub skip: bool,
     pub default_fn: Option<(String, Literal)>,
+    pub with: Option<String>,
 }
 
 impl FromAttribute for FieldAttributes {
@@ -120,12 +121,16 @@ impl FromAttribute for FieldAttributes {
                 ParsedAttribute::Tag(i) if i.to_string() == "with_serde" => {
                     if result.skip {
                         return Err(mutually_exclusive_err(&i, "skip"));
+                    } else if result.with.is_some() {
+                        return Err(mutually_exclusive_err(&i, "with"));
                     }
                     result.with_serde = true;
                 }
                 ParsedAttribute::Tag(i) if i.to_string() == "skip" => {
                     if result.with_serde {
                         return Err(mutually_exclusive_err(&i, "with_serde"));
+                    } else if result.with.is_some() {
+                        return Err(mutually_exclusive_err(&i, "with"));
                     }
                     result.skip = true;
                 }
@@ -135,6 +140,19 @@ impl FromAttribute for FieldAttributes {
                         result.default_fn =
                             Some((val_string[1..val_string.len() - 1].to_string(), val));
                         default_span = Some(key.span());
+                    } else {
+                        return Err(Error::custom_at("Should be a literal str", val.span()));
+                    }
+                }
+                ParsedAttribute::Property(key, val) if key.to_string() == "with" => {
+                    if result.skip {
+                        return Err(mutually_exclusive_err(&key, "skip"));
+                    } else if result.with_serde {
+                        return Err(mutually_exclusive_err(&key, "with_serde"));
+                    }
+                    let val_string = val.to_string();
+                    if val_string.starts_with('"') && val_string.ends_with('"') {
+                        result.with = Some(val_string[1..val_string.len() - 1].to_string());
                     } else {
                         return Err(Error::custom_at("Should be a literal str", val.span()));
                     }

@@ -149,19 +149,28 @@ impl DeriveEnum {
                             // If we have any fields, encode them all one by one
                             if let Some(variant_fields) = &variant_fields {
                                 for field_info in &variant_fields.infos {
+                                    let var_name = || {
+                                        field_info.name.to_string_with_prefix(TUPLE_FIELD_PREFIX)
+                                    };
                                     if field_info.attributes.skip {
                                         continue;
+                                    } else if let Some(with) = &field_info.attributes.with {
+                                        body.push_parsed(format!(
+                                            "{}::encode({}, encoder)?;",
+                                            with,
+                                            var_name(),
+                                        ))?;
                                     } else if field_info.attributes.with_serde {
                                         body.push_parsed(format!(
                                             "{0}::Encode::encode(&{0}::serde::Compat({1}), encoder)?;",
                                             crate_name,
-                                            field_info.name.to_string_with_prefix(TUPLE_FIELD_PREFIX),
+                                            var_name(),
                                         ))?;
                                     } else {
                                         body.push_parsed(format!(
                                             "{0}::Encode::encode({1}, encoder)?;",
                                             crate_name,
-                                            field_info.name.to_string_with_prefix(TUPLE_FIELD_PREFIX),
+                                            var_name(),
                                         ))?;
                                     }
                                 }
@@ -346,6 +355,12 @@ impl DeriveEnum {
                                                     variant_body
                                                         .push_parsed("core::default::Default::default(),")?;
                                                 }
+                                            } else if let Some(with) = &attributes.with {
+                                                variant_body
+                                                    .push_parsed(format!(
+                                                        "{}::decode(decoder)?,",
+                                                        with,
+                                                    ))?;
                                             } else if attributes.with_serde {
                                                 variant_body
                                                     .push_parsed(format!(
@@ -466,6 +481,12 @@ impl DeriveEnum {
                                                     variant_body
                                                         .push_parsed("core::default::Default::default(),")?;
                                                 }
+                                            } else if let Some(with) = &attributes.with {
+                                                variant_body
+                                                    .push_parsed(format!(
+                                                        "{}::borrow_decode(decoder)?,",
+                                                        with,
+                                                    ))?;
                                             } else if attributes.with_serde {
                                                 variant_body
                                                     .push_parsed(format!("<{0}::serde::BorrowCompat<_> as {0}::BorrowDecode::<__D::Context>>::borrow_decode(decoder)?.0,", crate_name))?;
