@@ -111,11 +111,20 @@ impl DeriveStruct {
                             for field in fields.names() {
                                 let attributes = field.attributes().get_attribute::<FieldAttributes>()?.unwrap_or_default();
                                 if attributes.skip {
-                                    struct_body
-                                        .push_parsed(format!(
-                                            "{}: core::default::Default::default(),",
-                                            field,
-                                        ))?;
+                                    if let Some((default_fn, _)) = attributes.default_fn {
+                                        struct_body
+                                            .push_parsed(format!(
+                                                "{}: ({})(),",
+                                                field,
+                                                default_fn,
+                                            ))?;
+                                    } else {
+                                        struct_body
+                                            .push_parsed(format!(
+                                                "{}: core::default::Default::default(),",
+                                                field,
+                                            ))?;
+                                    }
                                 } else if attributes.with_serde {
                                     struct_body
                                         .push_parsed(format!(
@@ -189,11 +198,20 @@ impl DeriveStruct {
                             for field in fields.names() {
                                 let attributes = field.attributes().get_attribute::<FieldAttributes>()?.unwrap_or_default();
                                 if attributes.skip {
-                                    struct_body
-                                        .push_parsed(format!(
-                                            "{}: core::default::Default::default(),",
-                                            field,
-                                        ))?;
+                                    if let Some((default_fn, _)) = attributes.default_fn {
+                                        struct_body
+                                            .push_parsed(format!(
+                                                "{}: ({})(),",
+                                                field,
+                                                default_fn,
+                                            ))?;
+                                    } else {
+                                        struct_body
+                                            .push_parsed(format!(
+                                                "{}: core::default::Default::default(),",
+                                                field,
+                                            ))?;
+                                    }
                                 } else if attributes.with_serde {
                                     struct_body
                                         .push_parsed(format!(

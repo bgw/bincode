@@ -104,6 +104,7 @@ impl FromAttribute for ContainerAttributes {
 pub struct FieldAttributes {
     pub with_serde: bool,
     pub skip: bool,
+    pub default_fn: Option<(String, Literal)>,
 }
 
 impl FromAttribute for FieldAttributes {
@@ -112,6 +113,7 @@ impl FromAttribute for FieldAttributes {
             Some(body) => body,
             None => return Ok(None),
         };
+        let mut default_span = None;
         let mut result = Self::default();
         for attribute in attributes {
             match attribute {
@@ -127,6 +129,16 @@ impl FromAttribute for FieldAttributes {
                     }
                     result.skip = true;
                 }
+                ParsedAttribute::Property(key, val) if key.to_string() == "default" => {
+                    let val_string = val.to_string();
+                    if val_string.starts_with('"') && val_string.ends_with('"') {
+                        result.default_fn =
+                            Some((val_string[1..val_string.len() - 1].to_string(), val));
+                        default_span = Some(key.span());
+                    } else {
+                        return Err(Error::custom_at("Should be a literal str", val.span()));
+                    }
+                }
                 ParsedAttribute::Tag(i) => {
                     return Err(Error::custom_at("Unknown field attribute", i.span()))
                 }
@@ -134,6 +146,14 @@ impl FromAttribute for FieldAttributes {
                     return Err(Error::custom_at("Unknown field attribute", key.span()))
                 }
                 _ => {}
+            }
+        }
+        if let Some(default_span) = default_span {
+            if !result.skip {
+                return Err(Error::custom_at(
+                    "`default` attribute requires `skip`, but `skip` was not found",
+                    default_span,
+                ));
             }
         }
         Ok(Some(result))

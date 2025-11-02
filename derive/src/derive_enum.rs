@@ -337,8 +337,15 @@ impl DeriveEnum {
                                             variant_body.punct(':');
                                             let attributes = field.attributes().get_attribute::<FieldAttributes>()?.unwrap_or_default();
                                             if attributes.skip {
-                                                variant_body
-                                                    .push_parsed("core::default::Default::default(),")?;
+                                                if let Some((default_fn, _)) = attributes.default_fn {
+                                                    variant_body
+                                                        .push_parsed(format!(
+                                                            "({})(),", default_fn,
+                                                        ))?;
+                                                } else {
+                                                    variant_body
+                                                        .push_parsed("core::default::Default::default(),")?;
+                                                }
                                             } else if attributes.with_serde {
                                                 variant_body
                                                     .push_parsed(format!(
@@ -450,8 +457,15 @@ impl DeriveEnum {
                                             variant_body.punct(':');
                                             let attributes = field.attributes().get_attribute::<FieldAttributes>()?.unwrap_or_default();
                                             if attributes.skip {
-                                                variant_body
-                                                    .push_parsed("core::default::Default::default(),")?;
+                                                if let Some((default_fn, _)) = attributes.default_fn {
+                                                    variant_body
+                                                        .push_parsed(format!(
+                                                            "({})(),", default_fn,
+                                                        ))?;
+                                                } else {
+                                                    variant_body
+                                                        .push_parsed("core::default::Default::default(),")?;
+                                                }
                                             } else if attributes.with_serde {
                                                 variant_body
                                                     .push_parsed(format!("<{0}::serde::BorrowCompat<_> as {0}::BorrowDecode::<__D::Context>>::borrow_decode(decoder)?.0,", crate_name))?;
