@@ -178,6 +178,44 @@ impl FromAttribute for FieldAttributes {
     }
 }
 
+#[derive(Default)]
+pub struct VariantAttributes {
+    pub with: String,
+}
+
+impl FromAttribute for VariantAttributes {
+    fn parse(group: &Group) -> Result<Option<Self>> {
+        let attributes = match parse_tagged_attribute(group, "bincode")? {
+            Some(body) => body,
+            None => return Ok(None),
+        };
+        let mut result = Self::default();
+        for attribute in attributes {
+            match attribute {
+                ParsedAttribute::Property(key, val) if key.to_string() == "with" => {
+                    let val_string = val.to_string();
+                    if val_string.starts_with('"') && val_string.ends_with('"') {
+                        result.with = val_string[1..val_string.len() - 1].to_string();
+                        if result.with.is_empty() {
+                            return Err(Error::custom_at("Should not be empty", val.span()));
+                        }
+                    } else {
+                        return Err(Error::custom_at("Should be a literal str", val.span()));
+                    }
+                }
+                ParsedAttribute::Property(i, _) | ParsedAttribute::Tag(i) => {
+                    return Err(Error::custom_at("Unknown field attribute", i.span()))
+                }
+                _ => {}
+            }
+        }
+        if result.with.is_empty() {
+            return Err(Error::custom_at("Missing `with` field", group.span()));
+        }
+        Ok(Some(result))
+    }
+}
+
 fn mutually_exclusive_err(ident: &Ident, other: &str) -> Error {
     Error::custom_at(
         format!("Attribute {ident} is mutually exclusive with {other}"),

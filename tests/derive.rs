@@ -151,6 +151,32 @@ fn test_decode_tuple() {
     assert_eq!(len, 6);
 }
 
+mod encode_enum_variant {
+    use crate::TestEnum;
+
+    pub fn encode<E: bincode::enc::Encoder>(
+        f1: &u32,
+        f2: &u32,
+        encoder: &mut E,
+    ) -> Result<(), bincode::error::EncodeError> {
+        bincode::Encode::encode(f2, encoder)?;
+        bincode::Encode::encode(f1, encoder)
+    }
+    pub fn decode<Context, D: bincode::de::Decoder<Context = Context>>(
+        decoder: &mut D,
+    ) -> Result<TestEnum, bincode::error::DecodeError> {
+        let f2 = <u32 as bincode::Decode<Context>>::decode(decoder)?;
+        let f1 = <u32 as bincode::Decode<Context>>::decode(decoder)?;
+
+        Ok(TestEnum::Quux { a: f1, b: f2 })
+    }
+    pub fn borrow_decode<'de, Context, D: bincode::de::BorrowDecoder<'de, Context = Context>>(
+        decoder: &mut D,
+    ) -> Result<TestEnum, bincode::error::DecodeError> {
+        decode(decoder)
+    }
+}
+
 #[derive(bincode::Encode, bincode::Decode, PartialEq, Debug, Eq)]
 pub enum TestEnum {
     Foo,
@@ -164,6 +190,13 @@ pub enum TestEnum {
         #[bincode(skip)] Option<u64>,
         #[bincode(with = "encode_as_double")] u8,
     ),
+    #[bincode(with = "encode_enum_variant")]
+    Qux(u32, u32),
+    #[bincode(with = "encode_enum_variant")]
+    Quux {
+        a: u32,
+        b: u32,
+    },
 }
 #[test]
 fn test_encode_enum_struct_variant() {
@@ -183,6 +216,26 @@ fn test_decode_enum_struct_variant() {
         bincode::decode_from_slice(&slice, bincode::config::standard()).unwrap();
     assert_eq!(result, start);
     assert_eq!(len, 2);
+}
+
+#[test]
+fn test_encode_enum_struct_variant_custom() {
+    let start = TestEnum::Quux { a: 1, b: 2 };
+    let mut slice = [0u8; 1024];
+    let bytes_written =
+        bincode::encode_into_slice(start, &mut slice, bincode::config::standard()).unwrap();
+    assert_eq!(bytes_written, 3);
+    // The encoder switches the order of the fields
+    assert_eq!(&slice[..bytes_written], &[4, 2, 1]);
+}
+#[test]
+fn test_denode_enum_struct_variant_custom() {
+    let start = TestEnum::Quux { a: 1, b: 2 };
+    let slice = [4, 2, 1];
+    let (result, len): (TestEnum, usize) =
+        bincode::decode_from_slice(&slice, bincode::config::standard()).unwrap();
+    assert_eq!(result, start);
+    assert_eq!(len, 3);
 }
 
 #[test]
@@ -223,6 +276,27 @@ fn test_decode_enum_tuple_variant() {
         bincode::decode_from_slice(&slice, bincode::config::standard()).unwrap();
     assert_eq!(result, start);
     assert_eq!(len, 7);
+}
+
+#[test]
+fn test_encode_enum_tuple_variant_custom() {
+    let start = TestEnum::Qux(1, 2);
+    let mut slice = [0u8; 1024];
+    let bytes_written =
+        bincode::encode_into_slice(start, &mut slice, bincode::config::standard()).unwrap();
+    assert_eq!(bytes_written, 3);
+    // The encoder switches the order of the fields
+    assert_eq!(&slice[..bytes_written], &[3, 2, 1]);
+}
+#[test]
+fn test_denode_enum_tuple_variant_custom() {
+    let start = TestEnum::Quux { a: 1, b: 2 };
+    // N.B. even though we set the discriminant to 3 it still returns `Quux` which is 4 because that is what the decoder always does
+    let slice = [3, 2, 1];
+    let (result, len): (TestEnum, usize) =
+        bincode::decode_from_slice(&slice, bincode::config::standard()).unwrap();
+    assert_eq!(result, start);
+    assert_eq!(len, 3);
 }
 
 #[derive(bincode::Encode, bincode::BorrowDecode, PartialEq, Debug, Eq)]

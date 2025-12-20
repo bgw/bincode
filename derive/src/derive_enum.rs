@@ -1,4 +1,4 @@
-use crate::attribute::{ContainerAttributes, FieldAttributes};
+use crate::attribute::{ContainerAttributes, FieldAttributes, VariantAttributes};
 use virtue::{parse::IdentOrIndex, prelude::*};
 
 const TUPLE_FIELD_PREFIX: &str = "field_";
@@ -146,6 +146,16 @@ impl DeriveEnum {
                             })?;
                             body.punct('?');
                             body.punct(';');
+                            // Dispatch to a custom encoder if supplied
+                            // We pass all the destructured fields
+                            if let Some(VariantAttributes{with}) = variant.attributes.get_attribute::<VariantAttributes>()? {
+                                let fields = variant_fields.iter().flat_map(|f| f.infos.iter().map(|i| match &i.name {
+                                    IdentOrIndex::Ident { ident, .. } => ident.to_string(),
+                                    IdentOrIndex::Index { index, .. } => format!("{TUPLE_FIELD_PREFIX}{index}"),
+                                })).collect::<Vec<_>>().join(", ");
+                                body.push_parsed(format!("{with}::encode({fields}, encoder)"))?;
+                                return Ok(());
+                            }
                             // If we have any fields, encode them all one by one
                             if let Some(variant_fields) = &variant_fields {
                                 for field_info in &variant_fields.infos {
@@ -325,6 +335,11 @@ impl DeriveEnum {
                                 variant_case.push(variant_index.remove(0));
                             }
                             variant_case.puncts("=>");
+                            // Dispatch to a custom decoder if supplied
+                            if let Some(VariantAttributes{with}) = variant.attributes.get_attribute::<VariantAttributes>()? {
+                                variant_case.push_parsed(format!("{}::decode(decoder),", with))?;
+                                continue;
+                            }
                             variant_case.push_parsed("core::result::Result::Ok")?;
                             variant_case.group(Delimiter::Parenthesis, |variant_case_body| {
                                 // Self::Variant { }
@@ -451,6 +466,11 @@ impl DeriveEnum {
                                 variant_case.push(variant_index.remove(0));
                             }
                             variant_case.puncts("=>");
+                            // Dispatch to a custom decoder if supplied
+                            if let Some(VariantAttributes{with}) = variant.attributes.get_attribute::<VariantAttributes>()? {
+                                variant_case.push_parsed(format!("{}::borrow_decode(decoder),", with))?;
+                                continue;
+                            }
                             variant_case.push_parsed("core::result::Result::Ok")?;
                             variant_case.group(Delimiter::Parenthesis, |variant_case_body| {
                                 // Self::Variant { }
